@@ -5,9 +5,9 @@
   "main": "lib/index.js",
   "dependencies": {
     "prfun": "~0.1.0",
-    "request": "~2.34.0",
     "sqlite3": "~2.2.0",
-    "domino": "~1.0.15"
+    "domino": "~1.0.17",
+    "hyperquest": "^0.3.0"
   },
   "devDependencies": {},
   "scripts": {

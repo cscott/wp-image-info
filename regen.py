@@ -103,7 +103,11 @@ def examinefigure(figure, imageconn=None):
     if height <= width:
         return False # not portrait
     # ok, this is a thumb to regenerate!
-    (filename,headers) = urllib.request.urlretrieve(thumburl(resource))
+    url = thumburl(resource)
+    if url is None:
+        print("NO THUMB URL?", resource)
+        return False
+    (filename,headers) = urllib.request.urlretrieve(url)
     st = os.stat(filename)
     os.remove(filename) # woot
     print("Generated", resource, st.st_size)

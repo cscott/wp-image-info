@@ -115,15 +115,17 @@ def examinefigure(figure, imageconn=None):
     if url is None:
         print("NO THUMB URL?", resource)
         return False
-    try:
-        (filename,headers) = urllib.request.urlretrieve(url)
-        st = os.stat(filename)
-        os.remove(filename) # woot
-    except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
-        print("FAILED TO FETCH THUMB", url)
-        return False
-    print("Generated", resource, st.st_size)
-    return True
+    for n in range(1, 4):
+        try:
+            (filename,headers) = urllib.request.urlretrieve(url)
+            st = os.stat(filename)
+            os.remove(filename) # woot
+            print("Generated", resource, st.st_size)
+            return True
+        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
+            time.sleep(5*n)
+    print("FAILED TO FETCH THUMB", url)
+    return False
 
 def fetchparsoid(pageinfo, quiet=False):
     url = "http://parsoid-lb.eqiad.wikimedia.org/" + PREFIX + '/'

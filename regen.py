@@ -15,7 +15,7 @@ PREFIX=os.environ.get('WPPREFIX', 'enwiki')
 AFTER=os.environ.get('WPAFTER', None)
 PARALLEL = int(os.environ.get('WPWORKERS', '50'))
 TIMEOUT = int(os.environ.get('WPTIMEOUT', 4*60)) # seconds
-RETRIES = 3
+RETRIES = 4
 
 def request(url, data=None):
     # errors I have seen:
@@ -52,6 +52,7 @@ def imageinfo(resource, props, extradict=None):
         for k,v in extradict.items():
             params[k] = v
     resp = apirequest(params)
+    if resp is None: return None
     try:
         info = [it for it in resp['query']['pages'].items()][0][1]['imageinfo']
         return info[0]

@@ -209,4 +209,7 @@ def doit_fast():
     print("")
 
 if __name__ == '__main__':
-    doit_fast()
+    if os.environ.get('WPWHICH', 'slow') == 'slow':
+        doit_slow()
+    else:
+        doit_fast()

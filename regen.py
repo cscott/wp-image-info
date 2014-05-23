@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sqlite3
 import html5lib
+import http.client
 import json
 import os
 import re
@@ -11,21 +12,34 @@ import urllib.request
 #import xml.etree.ElementTree as ET
 
 PREFIX=os.environ.get('WPPREFIX', 'enwiki')
-PARALLEL = int(os.environ.get('WPWORKERS', '25'))
+AFTER=os.environ.get('WPAFTER', None)
+PARALLEL = int(os.environ.get('WPWORKERS', '50'))
 TIMEOUT = int(os.environ.get('WPTIMEOUT', 4*60)) # seconds
+RETRIES = 3
+
+def request(url, data=None):
+    # errors I have seen:
+    # urllib.error.HTTPError, urllib.error.URLError, socket.gaierror,
+    # http.client.BadStatusLine
+    for n in range(RETRIES):
+        try:
+            with urllib.request.urlopen(url, data, TIMEOUT) as req:
+                return req.read()
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                socket.gaierror, http.client.BadStatusLine):
+            time.sleep(5*n)
+        except:
+            print("WHOO, A NEW ONE")
+            time.sleep(5*n)
+    return None
 
 def apirequest(params):
     url = 'https://' + re.sub(r'wiki$', '', PREFIX) + '.wikipedia.org/w/api.php';
     params['format'] = 'json'
     params = urllib.parse.urlencode(params).encode('utf-8')
-    for n in range(1, 4):
-        try:
-            with urllib.request.urlopen(url, params, TIMEOUT) as req:
-                data = req.read().decode('utf-8')
-            return json.loads(data)
-        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
-            time.sleep(5*n)
-    raise Exception("API request fail: "+url)
+    data = request(url, params)
+    if data is None: return None
+    return json.loads(data.decode('utf-8'))
 
 def imageinfo(resource, props, extradict=None):
     params = {
@@ -115,35 +129,24 @@ def examinefigure(figure, imageconn=None):
     if url is None:
         print("NO THUMB URL?", resource)
         return False
-    for n in range(1, 4):
-        try:
-            (filename,headers) = urllib.request.urlretrieve(url)
-            st = os.stat(filename)
-            os.remove(filename) # woot
-            print("Generated", resource, st.st_size)
-            return True
-        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
-            time.sleep(5*n)
-    print("FAILED TO FETCH THUMB", url)
-    return False
+    thumbdata = request(url)
+    if thumbdata is None:
+        print("FAILED TO FETCH THUMB", url)
+        return False
+    print("Generated", resource, len(thumbdata))
+    return True
 
 def fetchparsoid(pageinfo, quiet=False):
     url = "http://parsoid-lb.eqiad.wikimedia.org/" + PREFIX + '/'
     url += urllib.parse.quote(pageinfo['title'])
     # XXX pageids returned by allpages are *not* revision ids
     #url += '?oldid=' + str(pageinfo['pageid'])
-    for n in range(1, 4):
-        try:
-            with urllib.request.urlopen(url, None, TIMEOUT) as req:
-                data = req.read().decode('utf-8')
-            document = html5lib.parse(data)
-            return document.findall('*//{http://www.w3.org/1999/xhtml}figure')
-        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
-            if not quiet:
-                print('RETRY ',n,'(parsoid error)',pageinfo['title'], end='\r')
-            time.sleep(5*n)
-    print('SKIPPING (parsoid error)', pageinfo['title'])
-    return []
+    data = request(url)
+    if data is None:
+        print('SKIPPING (parsoid error)', pageinfo['title'])
+        return []
+    document = html5lib.parse(data.decode('utf-8'))
+    return document.findall('*//{http://www.w3.org/1999/xhtml}figure')
 
 def doit_slow():
     totalfigs = 0
@@ -168,7 +171,7 @@ def doit_slower():
     totalfigs = 0
     totalregen = 0
 
-    for p in allpages():
+    for p in allpages(AFTER):
         totalpages += 1
         print(" "*70, end='\r')
         print(totalpages, p['title'], end='\r')
@@ -220,14 +223,17 @@ def doit_fast():
     t.daemon = True
     t.start()
 
-    for p in allpages():
+    for p in allpages(AFTER):
         q.put(p)
     q.join() # block until all tasks are done
 
     print("")
 
 if __name__ == '__main__':
-    if os.environ.get('WPWHICH', 'fast') == 'slow':
+    which = os.environ.get('WPWHICH', 'fast')
+    if which == 'slow':
         doit_slow()
+    elif which == 'slower':
+        doit_slower()
     else:
         doit_fast()

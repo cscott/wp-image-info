@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 #import xml.etree.ElementTree as ET
 
-PREFIX='frwiki'
+PREFIX=os.environ.get('WPPREFIX', 'enwiki')
 TIMEOUT=2*60 # seconds
 imageconn = sqlite3.connect(PREFIX+'-images.db')
 pageconn = sqlite3.connect(PREFIX+'-pages.db')

@@ -2,10 +2,12 @@
 import sqlite3
 import html5lib
 import json
+import os
 import re
+from regen import apirequest, imageinfo
 #import xml.etree.ElementTree as ET
 
-PREFIX='frwiki'
+PREFIX=os.environ.get('WPPREFIX', 'enwiki')
 imageconn = sqlite3.connect(PREFIX+'-images.db')
 pageconn = sqlite3.connect(PREFIX+'-pages.db')
 
@@ -87,12 +89,23 @@ for row in pageconn.execute('SELECT name, figid, figure FROM figure'):
     resource = img.get('resource')
     resource = re.sub(r'^([.][.]?/)+', '', resource)
     info = imageconn.execute\
-      ('SELECT name,pageid,width,height,mediatype FROM image WHERE name = ?',\
+      ('SELECT width,height,mediatype FROM image WHERE name = ?',\
         (resource,) ).fetchone()
-    if info is None:
-        # XXX fetch from the MW API
-        continue
-    (figname,pageid,width,height,mediatype) = info
+    if info is not None:
+        (width,height,mediatype) = info
+    else:
+        # fetch from the MW API
+        info = imageinfo(resource, ['size', 'mediatype'])
+        if info is None:
+            # try urldecode!
+            resource = urllib.parse.unquote(resource)
+            info = imageinfo(resource, ['size', 'mediatype'])
+        if info is None:
+            print("SKIPPING MYSTERIOUS IMAGE", resource)
+            continue
+        height = info['height']
+        width = info['width']
+        mediatype = info['mediatype']
     # compute old size
     oldwidth = 180 * factor
     # compute new size

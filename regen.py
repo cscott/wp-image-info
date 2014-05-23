@@ -11,15 +11,21 @@ import urllib.request
 #import xml.etree.ElementTree as ET
 
 PREFIX=os.environ.get('WPPREFIX', 'enwiki')
-TIMEOUT=4*60 # seconds
+PARALLEL = int(os.environ.get('WPWORKERS', '25'))
+TIMEOUT = int(os.environ.get('WPTIMEOUT', 4*60)) # seconds
 
 def apirequest(params):
     url = 'https://' + re.sub(r'wiki$', '', PREFIX) + '.wikipedia.org/w/api.php';
     params['format'] = 'json'
     params = urllib.parse.urlencode(params).encode('utf-8')
-    with urllib.request.urlopen(url, params, TIMEOUT) as req:
-        data = req.read().decode('utf-8')
-        return json.loads(data)
+    for n in range(1, 4):
+        try:
+            with urllib.request.urlopen(url, params, TIMEOUT) as req:
+                data = req.read().decode('utf-8')
+            return json.loads(data)
+        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
+            time.sleep(5*n)
+    raise Exception("API request fail: "+url)
 
 def imageinfo(resource, props, extradict=None):
     params = {
@@ -109,9 +115,13 @@ def examinefigure(figure, imageconn=None):
     if url is None:
         print("NO THUMB URL?", resource)
         return False
-    (filename,headers) = urllib.request.urlretrieve(url)
-    st = os.stat(filename)
-    os.remove(filename) # woot
+    try:
+        (filename,headers) = urllib.request.urlretrieve(url)
+        st = os.stat(filename)
+        os.remove(filename) # woot
+    except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
+        print("FAILED TO FETCH THUMB", url)
+        return False
     print("Generated", resource, st.st_size)
     return True
 
@@ -172,7 +182,6 @@ def doit_slower():
     print("Total regenerated", totalregen)
 
 def doit_fast():
-    PARALLEL = 25
     from queue import Queue
     from threading import Thread
     q = Queue(PARALLEL)

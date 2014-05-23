@@ -192,7 +192,7 @@ def doit_fast():
             totalfigs += nfigs
             totalregen += nregen
             print(" "*70, end='\r')
-            print(totalpages, totalfigs, totalregen, p['title'], end='\r')
+            print(PREFIX, totalpages, totalfigs, totalregen, p['title'], end='\r')
             results.task_done()
     for i in range(PARALLEL): # number of worker threads
         t = Thread(target=worker)
@@ -209,7 +209,7 @@ def doit_fast():
     print("")
 
 if __name__ == '__main__':
-    if os.environ.get('WPWHICH', 'slow') == 'slow':
+    if os.environ.get('WPWHICH', 'fast') == 'slow':
         doit_slow()
     else:
         doit_fast()

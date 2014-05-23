@@ -4,6 +4,8 @@ import html5lib
 import json
 import os
 import re
+import socket
+import time
 import urllib.parse
 import urllib.request
 #import xml.etree.ElementTree as ET
@@ -124,9 +126,10 @@ def fetchparsoid(pageinfo, quiet=False):
                 data = req.read().decode('utf-8')
             document = html5lib.parse(data)
             return document.findall('*//{http://www.w3.org/1999/xhtml}figure')
-        except urllib.error.HTTPError:
+        except (urllib.error.HTTPError, urllib.error.URLError, socket.gaierror):
             if not quiet:
                 print('RETRY ',n,'(parsoid error)',pageinfo['title'], end='\r')
+            time.sleep(5*n)
     print('SKIPPING (parsoid error)', pageinfo['title'])
     return []
 
@@ -169,7 +172,7 @@ def doit_slower():
     print("Total regenerated", totalregen)
 
 def doit_fast():
-    PARALLEL = 50
+    PARALLEL = 25
     from queue import Queue
     from threading import Thread
     q = Queue(PARALLEL)
@@ -186,7 +189,6 @@ def doit_fast():
             results.put((page['title'], nfigs, nregen))
             q.task_done()
     def reporter():
-        import time
         (totalpages, totalfigs, totalregen) = (0, 0, 0)
         last = time.time()
         while True:

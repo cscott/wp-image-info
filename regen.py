@@ -116,7 +116,8 @@ def examinefigure(figure, imageconn=None):
 def fetchparsoid(pageinfo, quiet=False):
     url = "http://parsoid-lb.eqiad.wikimedia.org/" + PREFIX + '/'
     url += urllib.parse.quote(pageinfo['title'])
-    url += '?oldid=' + str(pageinfo['pageid'])
+    # XXX pageids returned by allpages are *not* revision ids
+    #url += '?oldid=' + str(pageinfo['pageid'])
     for n in range(1, 4):
         try:
             with urllib.request.urlopen(url, None, TIMEOUT) as req:
@@ -185,14 +186,18 @@ def doit_fast():
             results.put((page['title'], nfigs, nregen))
             q.task_done()
     def reporter():
+        import time
         (totalpages, totalfigs, totalregen) = (0, 0, 0)
+        last = time.time()
         while True:
             (title,nfigs,nregen) = results.get()
             totalpages += 1
             totalfigs += nfigs
             totalregen += nregen
-            print(" "*70, end='\r')
-            print(PREFIX, totalpages, totalfigs, totalregen, p['title'], end='\r')
+            if time.time() > (last + 0.5):
+                print(" "*70, end='\r')
+                print(PREFIX, totalpages, totalfigs, totalregen, p['title'], end='\r')
+                last = time.time()
             results.task_done()
     for i in range(PARALLEL): # number of worker threads
         t = Thread(target=worker)
